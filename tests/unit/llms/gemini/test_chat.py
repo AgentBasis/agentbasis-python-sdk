@@ -15,3 +15,11 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 mock_google = types.ModuleType("google")
 mock_genai = types.ModuleType("google.generativeai")
 
+class MockGenerativeModel:
+    def __init__(self, model_name="gemini-2.5-flash"):
+        self.model_name = model_name
+
+        def generate_content(self, *args, **kwargs):
+            pass
+                 
+        
