@@ -18,10 +18,18 @@ class AgentBay:
         self.config = config
         
         # 1. Create Resource (Metadata about who is sending data)
-        resource = Resource.create(attributes={
+        attributes = {
             "service.name": "agentbay-python-sdk",
             # We can add more metadata here like environment
-        })
+        }
+        
+        # Add agent_id if present (it should be, as Config validates it)
+        if config.agent_id:
+            attributes["service.instance.id"] = config.agent_id
+            # Also adding a custom attribute just in case we want to query by it explicitly later
+            attributes["agentbay.agent.id"] = config.agent_id
+
+        resource = Resource.create(attributes=attributes)
 
         # 2. Initialize Tracer Provider
         self.tracer_provider = TracerProvider(resource=resource)
@@ -43,11 +51,11 @@ class AgentBay:
         trace.set_tracer_provider(self.tracer_provider)
 
     @classmethod
-    def initialize(cls, api_key: Optional[str] = None, api_url: Optional[str] = None) -> 'AgentBay':
+    def initialize(cls, api_key: Optional[str] = None, api_url: Optional[str] = None, agent_id: Optional[str] = None) -> 'AgentBay':
         """
         Initializes the global AgentBay client.
         """
-        config = Config(api_key=api_key, api_url=api_url)
+        config = Config(api_key=api_key, api_url=api_url, agent_id=agent_id)
         config.validate()
         
         cls._instance = cls(config)
@@ -61,7 +69,7 @@ class AgentBay:
         if cls._instance is None:
             raise RuntimeError(
                 "AgentBay is not initialized. "
-                "Please call `agentbay.init(api_key='...')` first."
+                "Please call `agentbay.init(api_key='...', agent_id='...')` first."
             )
         return cls._instance
 
