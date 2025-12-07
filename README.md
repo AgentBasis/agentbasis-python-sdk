@@ -20,13 +20,16 @@ pip install agentbay
 ## Quick Start
 
 ### 1. Initialize the SDK
-Start by initializing the SDK with your API key. This usually goes at the top of your main application file.
+Start by initializing the SDK with your API key and Agent ID. This usually goes at the top of your main application file.
 
 ```python
 import agentbay
 
-# Initialize with your API Key
-agentbay.init(api_key="your-api-key-here")
+# Initialize with your API Key and Agent ID
+agentbay.init(
+    api_key="your-api-key-here", 
+    agent_id="your-agent-id-here"
+)
 ```
 
 ### 2. Manual Tracking (Decorators)
@@ -87,3 +90,4 @@ llm.predict("Hello world")
 After every version update: python -m build (to build the latest version and update)
 
 Install the sdk for testing:  `pip install git+https://github.com/AgentBay-AI/agentbay-python-sdk.git`
+
