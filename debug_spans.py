@@ -16,17 +16,17 @@ class MockResponse:
     text: str = "OK"
 
 # 1. Setup OTel with realistic Resource metadata
+# This mimics what AgentBay.init(agent_id="agent-123") does internally
 resource = Resource.create({
     "service.name": "agentbay-python-sdk",
     "service.version": "0.1.0",
-    "deployment.environment": "production"
+    "deployment.environment": "production",
+    # THIS IS THE NEW FIELD
+    "service.instance.id": "agent-123-test-id",
+    "agentbay.agent.id": "agent-123-test-id"
 })
 
 provider = TracerProvider(resource=resource)
-
-# Exporter 1: Console (Human Readable)
-# console_processor = SimpleSpanProcessor(ConsoleSpanExporter())
-# provider.add_span_processor(console_processor)
 
 # Exporter 2: OTLP JSON (Strict Backend Format)
 class DebugOTLPExporter(OTLPSpanExporter):
