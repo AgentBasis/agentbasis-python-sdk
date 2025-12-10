@@ -21,9 +21,9 @@ resource = Resource.create({
     "service.name": "agentbay-python-sdk",
     "service.version": "0.1.0",
     "deployment.environment": "production",
-    # THIS IS THE NEW FIELD
+    # Added agent id
     "service.instance.id": "agent-123-test-id",
-    "agentbay.agent.id": "agent-123-test-id"
+    "agentbay.agent.id": "1234-5678-9012-3456"
 })
 
 provider = TracerProvider(resource=resource)
