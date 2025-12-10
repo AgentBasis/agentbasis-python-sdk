@@ -8,6 +8,7 @@ This is the **foundation SDK** that enables deep observability for coded agents 
 - Pure Python
 - LLM Providers: 
     - Open AI
+    - Gemini
 - Frameworks
     - LangChain
 
