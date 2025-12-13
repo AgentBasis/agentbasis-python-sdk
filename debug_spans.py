@@ -21,7 +21,6 @@ resource = Resource.create({
     "service.name": "agentbay-python-sdk",
     "service.version": "0.1.0",
     "deployment.environment": "production",
-    # Added agent id
     "service.instance.id": "agent-123-test-id",
     "agentbay.agent.id": "1234-5678-9012-3456"
 })
@@ -58,21 +57,40 @@ trace.set_tracer_provider(provider)
 tracer = trace.get_tracer("agentbay.debug")
 
 # 2. Simulate a Complex Agent Workflow
-def simulate_openai_call(prompt):
+def simulate_openai_call(prompt, model="gpt-4"):
     """Simulates a call to OpenAI with token usage."""
     with tracer.start_as_current_span("openai.chat.completions.create") as span:
+        # Standard OTel Attributes for GenAI
         span.set_attribute("llm.system", "openai")
-        span.set_attribute("llm.request.model", "gpt-4")
+        span.set_attribute("llm.request.model", model)
+        span.set_attribute("llm.request.temperature", 0.7)
         span.set_attribute("llm.request.messages", f"[{{'role': 'user', 'content': '{prompt}'}}]")
         
-        time.sleep(0.2)
+        time.sleep(0.3)
         
-        response_content = "Here is a summary of your data..."
+        response_content = f"Analysis for: {prompt[:20]}..."
         span.set_attribute("llm.response.content", response_content)
-        span.set_attribute("llm.usage.prompt_tokens", 50)
-        span.set_attribute("llm.usage.completion_tokens", 20)
-        span.set_attribute("llm.usage.total_tokens", 70)
+        
+        # Token Usage Tracking
+        prompt_tokens = len(prompt) // 4
+        completion_tokens = len(response_content) // 4
+        span.set_attribute("llm.usage.prompt_tokens", prompt_tokens)
+        span.set_attribute("llm.usage.completion_tokens", completion_tokens)
+        span.set_attribute("llm.usage.total_tokens", prompt_tokens + completion_tokens)
+        
         return response_content
+
+def agent_tool_call(tool_name, tool_input):
+    """Simulates a tool execution."""
+    with tracer.start_as_current_span(f"tool.{tool_name}") as span:
+        span.set_attribute("tool.name", tool_name)
+        span.set_attribute("tool.input", str(tool_input))
+        
+        time.sleep(0.1)
+        
+        result = f"Result from {tool_name}: Success"
+        span.set_attribute("tool.output", result)
+        return result
 
 def agent_workflow(user_query):
     """Top level agent function."""
@@ -82,15 +100,19 @@ def agent_workflow(user_query):
         
         print(f"Agent processing: {user_query}")
         
-        with tracer.start_as_current_span("tool.search") as tool_span:
-            tool_span.set_attribute("tool.name", "google_search")
-            time.sleep(0.1)
-            tool_span.set_attribute("tool.result", "Found 5 financial reports.")
+        # Step 1: Initial Thought
+        simulate_openai_call("I need to search for stock data first.")
         
-        result = simulate_openai_call(user_query)
-        span.set_attribute("output.result", result)
+        # Step 2: Parallel Tool Calls
+        agent_tool_call("google_search", {"query": "AAPL quarterly report 2024"})
+        agent_tool_call("calculator", {"expression": "150 * 1.05"})
+        
+        # Step 3: Final Answer
+        final_answer = simulate_openai_call("Here is the summary based on the search results.")
+        
+        span.set_attribute("output.result", final_answer)
 
 # 3. Run the Simulation
 print("--- SIMULATING REALISTIC AGENT TRACE ---")
-agent_workflow("Analyze AAPL stock performance")
+agent_workflow("Analyze AAPL stock performance for Q3 2024")
 print("--- DONE ---")
