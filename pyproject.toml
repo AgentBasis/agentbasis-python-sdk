@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agentbay"
+name = "agentbasis"
 version = "0.1.0"
 description = "Management & Observability SDK for AI Agents"
 readme = "README.md"
@@ -22,5 +22,5 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://agentbay.co"
+"Homepage" = "https://agentbasis.co"
 "Bug Tracker" = "https://github.com/AgentBay-AI/agentbay-python-sdk/issues"
