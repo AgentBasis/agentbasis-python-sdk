@@ -1,8 +1,8 @@
-# AgentBay Python SDK
+# AgentBasis Python SDK
 
 **Management & Observability SDK for AI Agents**
 
-The **AgentBay Python SDK** provides a simple, lightweight way to track the performance, traces, sessions, and behavior of AI agents. It sends data using the **OpenTelemetry (OTel)** standard, making it compatible with AgentBay and other observability backends.
+The **AgentBasis Python SDK** provides a simple, lightweight way to track the performance, traces, sessions, and behavior of AI agents. It sends data using the **OpenTelemetry (OTel)** standard, making it compatible with AgentBasis and other observability backends.
 
 This is the **foundation SDK** that enables deep observability for coded agents built with:
 - Pure Python
