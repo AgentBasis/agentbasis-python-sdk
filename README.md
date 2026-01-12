@@ -90,5 +90,5 @@ llm.predict("Hello world")
 ## Notes:
 After every version update: python -m build (to build the latest version and update)
 
-Install the sdk for testing:  `pip install git+https://github.com/AgentBasis-AI/agentbasis-python-sdk.git`
+Install the sdk for testing:  `pip install git+https://github.com/AgentBasis/agentbasis-python-sdk.git`
 
