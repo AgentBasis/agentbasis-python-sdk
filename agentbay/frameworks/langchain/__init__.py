@@ -1,4 +1,4 @@
-from .callback import AgentBayCallbackHandler
+from .callback import AgentBasisCallbackHandler
 
 def instrument():
     """
@@ -12,7 +12,7 @@ def instrument():
         import langchain
         
         # Create our handler
-        handler = AgentBayCallbackHandler()
+        handler = AgentBasisCallbackHandler()
         
         # Add to global handlers if it's a list, or create a list
         # This is a best-effort attempt to inject ourselves globally
@@ -30,4 +30,4 @@ def instrument():
     except ImportError:
         pass
 
-__all__ = ["AgentBayCallbackHandler", "instrument"]
+__all__ = ["AgentBasisCallbackHandler", "instrument"]

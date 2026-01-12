@@ -4,7 +4,7 @@ from opentelemetry import trace as otel_trace
 from opentelemetry.trace import Status, StatusCode
 
 # Create a global tracer for the SDK
-# tracer = otel_trace.get_tracer("agentbay") 
+# tracer = otel_trace.get_tracer("agentbasis") 
 # We shouldn't create it globaly at import time because the provider might not be set yet.
 
 def trace(func: Callable) -> Callable:
@@ -14,7 +14,7 @@ def trace(func: Callable) -> Callable:
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         # Get the tracer at runtime, so it uses the configured provider
-        tracer = otel_trace.get_tracer("agentbay")
+        tracer = otel_trace.get_tracer("agentbasis")
         
         # Start a new span. 'start_as_current_span' automatically handles 
         # parent/child relationships if one function calls another.

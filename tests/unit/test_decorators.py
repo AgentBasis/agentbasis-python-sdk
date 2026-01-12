@@ -4,7 +4,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-from agentbay import trace as agentbay_trace
+from agentbasis import trace as agentbasis_trace
 
 class TestDecorators(unittest.TestCase):
     
@@ -26,7 +26,7 @@ class TestDecorators(unittest.TestCase):
     def test_trace_success(self):
         """Test that a successful function call is tracked via OTel."""
         
-        @agentbay_trace
+        @agentbasis_trace
         def add(a, b):
             return a + b
         
@@ -47,7 +47,7 @@ class TestDecorators(unittest.TestCase):
     def test_trace_error(self):
         """Test that an error in the function is tracked via OTel."""
         
-        @agentbay_trace
+        @agentbasis_trace
         def divider(x):
             return 10 / x
         

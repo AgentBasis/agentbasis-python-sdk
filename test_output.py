@@ -16,13 +16,13 @@ class MockResponse:
     text: str = "OK"
 
 # 1. Setup OTel with realistic Resource metadata
-# This mimics what AgentBay.init(agent_id="agent-123") does internally
+# This mimics what AgentBasis.init(agent_id="agent-123") does internally
 resource = Resource.create({
-    "service.name": "agentbay-python-sdk",
+    "service.name": "agentbasis-python-sdk",
     "service.version": "0.1.0",
     "deployment.environment": "production",
     "service.instance.id": "agent-123-test-id",
-    "agentbay.agent.id": "1234-5678-9012-3456"
+    "agentbasis.agent.id": "1234-5678-9012-3456"
 })
 
 provider = TracerProvider(resource=resource)
@@ -54,7 +54,7 @@ otlp_processor = SimpleSpanProcessor(DebugOTLPExporter(endpoint="http://dummy"))
 provider.add_span_processor(otlp_processor)
 
 trace.set_tracer_provider(provider)
-tracer = trace.get_tracer("agentbay.debug")
+tracer = trace.get_tracer("agentbasis.debug")
 
 # 2. Simulate a Complex Agent Workflow
 def simulate_openai_call(prompt, model="gpt-4"):

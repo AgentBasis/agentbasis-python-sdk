@@ -1,5 +1,5 @@
 # IMPORTANT NOTE: This session layer is deprecated and will be removed in the future.
-# We are using the OpenTelemetry SDK to send data to the AgentBay backend.
+# We are using the OpenTelemetry SDK to send data to the AgentBasis backend.
 # The OpenTelemetry SDK is a more robust and feature-rich SDK that is more suited for this purpose.
 
 import uuid

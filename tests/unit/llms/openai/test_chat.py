@@ -36,8 +36,8 @@ sys.modules["openai.resources.chat"] = mock_chat
 sys.modules["openai.resources.chat.completions"] = mock_completions_module
 # --- MOCK SETUP END ---
 
-from agentbay.llms.openai import instrument
-from agentbay.llms.openai.chat import instrument_chat
+from agentbasis.llms.openai import instrument
+from agentbasis.llms.openai.chat import instrument_chat
 
 class TestOpenAIChat(unittest.TestCase):
     

@@ -7,19 +7,19 @@ from opentelemetry.sdk.resources import Resource
 
 from .config import Config
 
-class AgentBay:
+class AgentBasis:
     """
-    The main AgentBay client.
+    The main AgentBasis client.
     Manages OpenTelemetry configuration and data transmission.
     """
-    _instance: Optional['AgentBay'] = None
+    _instance: Optional['AgentBasis'] = None
 
     def __init__(self, config: Config):
         self.config = config
         
         # 1. Create Resource (Metadata about who is sending data)
         attributes = {
-            "service.name": "agentbay-python-sdk",
+            "service.name": "agentbasis-python-sdk",
             # We can add more metadata here like environment
         }
         
@@ -27,7 +27,7 @@ class AgentBay:
         if config.agent_id:
             attributes["service.instance.id"] = config.agent_id
             # Also adding a custom attribute just in case we want to query by it explicitly later
-            attributes["agentbay.agent.id"] = config.agent_id
+            attributes["agentbasis.agent.id"] = config.agent_id
 
         resource = Resource.create(attributes=attributes)
 
@@ -51,9 +51,9 @@ class AgentBay:
         trace.set_tracer_provider(self.tracer_provider)
 
     @classmethod
-    def initialize(cls, api_key: Optional[str] = None, api_url: Optional[str] = None, agent_id: Optional[str] = None) -> 'AgentBay':
+    def initialize(cls, api_key: Optional[str] = None, api_url: Optional[str] = None, agent_id: Optional[str] = None) -> 'AgentBasis':
         """
-        Initializes the global AgentBay client.
+        Initializes the global AgentBasis client.
         """
         config = Config(api_key=api_key, api_url=api_url, agent_id=agent_id)
         config.validate()
@@ -62,14 +62,14 @@ class AgentBay:
         return cls._instance
 
     @classmethod
-    def get_instance(cls) -> 'AgentBay':
+    def get_instance(cls) -> 'AgentBasis':
         """
-        Returns the global AgentBay client instance.
+        Returns the global AgentBasis client instance.
         """
         if cls._instance is None:
             raise RuntimeError(
-                "AgentBay is not initialized. "
-                "Please call `agentbay.init(api_key='...', agent_id='...')` first."
+                "AgentBasis is not initialized. "
+                "Please call `agentbasis.init(api_key='...', agent_id='...')` first."
             )
         return cls._instance
 

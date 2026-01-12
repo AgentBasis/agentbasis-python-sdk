@@ -41,7 +41,7 @@ sys.modules["opentelemetry.instrumentation"] = mock_otel_instr
 sys.modules["opentelemetry.instrumentation.grpc"] = mock_otel_grpc
 # --- MOCK SETUP END ---
 
-from agentbay.llms.gemini import instrument_chat
+from agentbasis.llms.gemini import instrument_chat
 
 class TestGeminiChat(unittest.TestCase):
     

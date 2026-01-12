@@ -1,5 +1,5 @@
 # IMPORTANT NOTE: This transport layer is deprecated and will be removed in the future.
-# We are using the OpenTelemetry SDK to send data to the AgentBay backend.
+# We are using the OpenTelemetry SDK to send data to the AgentBasis backend.
 # The OpenTelemetry SDK is a more robust and feature-rich SDK that is more suited for this purpose.
 
 import threading
@@ -10,7 +10,7 @@ from .config import Config
 
 class Transport:
     """
-    Handles asynchronous data transmission to the AgentBay backend.
+    Handles asynchronous data transmission to the AgentBasis backend.
     Uses a background thread to batch and send events.
     """
     def __init__(self, config: Config, batch_size: int = 10, flush_interval: float = 2.0):
@@ -80,7 +80,7 @@ class Transport:
         """
         import requests
         
-        url = f"{self.config.api_url}/v1/telemetry" # API URL for the AgentBay backend, needs to be configured 
+        url = f"{self.config.api_url}/v1/telemetry" # API URL for the AgentBasis backend, needs to be configured 
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.config.api_key}"
@@ -91,4 +91,4 @@ class Transport:
             # In a real SDK, we might log errors if response.status_code != 200
         except Exception as e:
             # In production, we would log this error or retry
-            print(f"AgentBay SDK Error: Failed to send telemetry: {e}")
+            print(f"AgentBasis SDK Error: Failed to send telemetry: {e}")

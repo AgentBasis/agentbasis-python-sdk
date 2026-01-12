@@ -15,7 +15,7 @@ This is the **foundation SDK** that enables deep observability for coded agents 
 ## Installation
 
 ```bash
-pip install agentbay
+pip install agentbasis
 ```
 
 ## Quick Start
@@ -24,10 +24,10 @@ pip install agentbay
 Start by initializing the SDK with your API key and Agent ID. This usually goes at the top of your main application file.
 
 ```python
-import agentbay
+import agentbasis
 
 # Initialize with your API Key and Agent ID
-agentbay.init(
+agentbasis.init(
     api_key="your-api-key-here", 
     agent_id="your-agent-id-here"
 )
@@ -37,14 +37,14 @@ agentbay.init(
 Use the `@trace` decorator to automatically track any function.
 
 ```python
-from agentbay import trace
+from agentbasis import trace
 
 @trace
 def chat_with_user(query):
     # Your agent logic here
     return "Response to: " + query
 
-# When you call this, data is automatically sent to AgentBay
+# When you call this, data is automatically sent to AgentBasis
 chat_with_user("Hello world")
 ```
 
@@ -52,7 +52,7 @@ chat_with_user("Hello world")
 Automatically track all your OpenAI calls (models, tokens, prompts) with one line of code.
 
 ```python
-from agentbay.llms import openai
+from agentbasis.llms import openai
 
 # Enable OpenAI instrumentation
 openai.instrument()
@@ -70,7 +70,7 @@ response = client.chat.completions.create(
 Automatically track chains, tools, and LLM calls in LangChain.
 
 ```python
-from agentbay.frameworks import langchain
+from agentbasis.frameworks import langchain
 
 # Enable LangChain instrumentation
 langchain.instrument()
@@ -85,10 +85,10 @@ llm.predict("Hello world")
 
 - **OpenTelemetry**: We use OTel under the hood for maximum compatibility.
 - **Spans**: Every action (function call, LLM request) is recorded as a Span.
-- **Transport**: Data is batched and sent asynchronously to AgentBay Backend service
+- **Transport**: Data is batched and sent asynchronously to AgentBasis Backend service
 
 ## Notes:
 After every version update: python -m build (to build the latest version and update)
 
-Install the sdk for testing:  `pip install git+https://github.com/AgentBay-AI/agentbay-python-sdk.git`
+Install the sdk for testing:  `pip install git+https://github.com/AgentBasis-AI/agentbasis-python-sdk.git`
 

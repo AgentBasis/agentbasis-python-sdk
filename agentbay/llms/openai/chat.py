@@ -5,7 +5,7 @@ from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
 # Get our tracer
-tracer = trace.get_tracer("agentbay.llms.openai")
+tracer = trace.get_tracer("agentbasis.llms.openai")
 
 def instrument_chat(openai_module: Any):
     """

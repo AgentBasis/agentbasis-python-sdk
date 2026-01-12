@@ -3,7 +3,7 @@ from .chat import instrument_chat
 def instrument():
     """
     Auto-instruments the OpenAI SDK.
-    Call this function after `agentbay.init()` and before using `openai`.
+    Call this function after `agentbasis.init()` and before using `openai`.
     """
     # We try to import openai here to ensure it's available
     try:

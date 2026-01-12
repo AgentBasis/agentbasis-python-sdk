@@ -1,15 +1,15 @@
 import unittest
 import os
-from agentbay import init, AgentBay
+from agentbasis import init, AgentBasis
 
-class TestAgentBayInit(unittest.TestCase):
+class TestAgentBasisInit(unittest.TestCase):
     
     def setUp(self):
         # Reset the singleton before each test to ensure isolation
-        AgentBay._instance = None
+        AgentBasis._instance = None
         # Clear env var if present
-        if "AGENTBAY_API_KEY" in os.environ:
-            del os.environ["AGENTBAY_API_KEY"]
+        if "AGENTBASIS_API_KEY" in os.environ:
+            del os.environ["AGENTBASIS_API_KEY"]
 
     def test_init_with_api_key(self):
         """Test that init works with an explicit API key."""
@@ -31,7 +31,7 @@ class TestAgentBayInit(unittest.TestCase):
         #  OR we can check if get_instance returns the same one).
         
         # Let's check that get_instance returns the initialized client
-        client2 = AgentBay.get_instance()
+        client2 = AgentBasis.get_instance()
         self.assertIs(client1, client2)
 
 if __name__ == "__main__":

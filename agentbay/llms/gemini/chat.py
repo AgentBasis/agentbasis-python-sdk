@@ -5,7 +5,7 @@ from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
 # Get our tracer
-tracer = trace.get_tracer("agentbay.llms.gemini")
+tracer = trace.get_tracer("agentbasis.llms.gemini")
 
 def instrument_chat(gemini_module: Any):
     """

@@ -3,7 +3,7 @@ from .chat import instrument_chat
 def instrument():
     """
     Auto-instruments the Google Gemini SDK.
-    Call this function after `agentbay.init()` and before using `google.generativeai`.
+    Call this function after `agentbasis.init()` and before using `google.generativeai`.
     """
     # We try to import google.generativeai here to ensure it's available
     try:

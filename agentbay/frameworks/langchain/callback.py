@@ -14,11 +14,11 @@ except ImportError:
         pass
     LLMResult = Any
 
-tracer = trace.get_tracer("agentbay.frameworks.langchain")
+tracer = trace.get_tracer("agentbasis.frameworks.langchain")
 
-class AgentBayCallbackHandler(BaseCallbackHandler):
+class AgentBasisCallbackHandler(BaseCallbackHandler):
     """
-    Callback handler for LangChain that sends telemetry to AgentBay via OpenTelemetry.
+    Callback handler for LangChain that sends telemetry to AgentBasis via OpenTelemetry.
     """
     def __init__(self):
         super().__init__()
