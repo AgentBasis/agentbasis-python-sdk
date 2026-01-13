@@ -17,3 +17,6 @@ build/
 *.pywz
 *.pyzw
 *.pyzwz
+
+# Plans
+IMPLEMENTATION_PLAN.md
