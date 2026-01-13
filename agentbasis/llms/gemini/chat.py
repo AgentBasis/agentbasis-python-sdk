@@ -5,6 +5,8 @@ import time
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode, Span
 
+from agentbasis.context import inject_context_to_span
+
 
 def _get_tracer():
     """
@@ -18,6 +20,9 @@ def _set_request_attributes(span: Span, model: str, contents: Any, tools: list, 
     """
     Set common request attributes on a span.
     """
+    # Inject user/session context
+    inject_context_to_span(span)
+    
     span.set_attribute("llm.system", "gemini")
     span.set_attribute("llm.request.model", model)
     span.set_attribute("llm.request.messages", str(contents))

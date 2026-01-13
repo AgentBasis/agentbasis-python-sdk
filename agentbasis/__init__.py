@@ -1,6 +1,15 @@
 from typing import Optional
 from .client import AgentBasis
 from .decorators import trace
+from .context import (
+    context,
+    set_user,
+    set_session,
+    set_conversation,
+    set_metadata,
+    with_context,
+    AgentBasisContext,
+)
 
 
 def init(api_key: Optional[str] = None, api_url: Optional[str] = None, agent_id: Optional[str] = None) -> AgentBasis:
@@ -62,4 +71,18 @@ def shutdown():
         pass
 
 
-__all__ = ["init", "AgentBasis", "trace", "flush", "shutdown"]
+__all__ = [
+    "init",
+    "AgentBasis",
+    "trace",
+    "flush",
+    "shutdown",
+    # Context management
+    "context",
+    "set_user",
+    "set_session",
+    "set_conversation",
+    "set_metadata",
+    "with_context",
+    "AgentBasisContext",
+]
