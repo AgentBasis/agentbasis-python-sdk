@@ -214,5 +214,189 @@ class TestOpenAIAsyncChat(unittest.TestCase):
         self.assertGreaterEqual(len(exception_events), 1)
 
 
+class TestOpenAIStreamingChat(unittest.TestCase):
+    """Tests for synchronous OpenAI streaming Chat Completions instrumentation."""
+
+    def setUp(self):
+        _exporter.clear()
+        self.mock_create = MagicMock()
+        MockCompletions.create = self.mock_create
+
+    def _create_mock_chunk(self, content: str):
+        """Helper to create a mock streaming chunk."""
+        chunk = MagicMock()
+        chunk.choices = [MagicMock()]
+        chunk.choices[0].delta = MagicMock()
+        chunk.choices[0].delta.content = content
+        return chunk
+
+    def test_sync_streaming_basic(self):
+        """Test that sync streaming responses are traced correctly."""
+        instrument_chat(mock_openai)
+
+        # Create mock chunks
+        chunks = [
+            self._create_mock_chunk("Hello"),
+            self._create_mock_chunk(" "),
+            self._create_mock_chunk("World"),
+            self._create_mock_chunk("!"),
+        ]
+        
+        # Return an iterator of chunks
+        self.mock_create.return_value = iter(chunks)
+
+        # Call with stream=True
+        completions_instance = MockCompletions()
+        stream = completions_instance.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": "Hello"}],
+            stream=True
+        )
+
+        # Consume the stream
+        collected_content = []
+        for chunk in stream:
+            if chunk.choices[0].delta.content:
+                collected_content.append(chunk.choices[0].delta.content)
+
+        self.assertEqual("".join(collected_content), "Hello World!")
+
+        # Verify span after stream is consumed
+        spans = _exporter.get_finished_spans()
+        self.assertEqual(len(spans), 1)
+
+        span = spans[0]
+        self.assertIn("gpt-4", span.name)
+        self.assertEqual(span.attributes["llm.system"], "openai")
+        self.assertEqual(span.attributes["llm.request.streaming"], True)
+        self.assertEqual(span.attributes["llm.response.content"], "Hello World!")
+        self.assertEqual(span.attributes["llm.response.chunk_count"], 4)
+        self.assertIn("llm.response.first_token_ms", span.attributes)
+
+    def test_sync_streaming_error(self):
+        """Test that errors during streaming are recorded."""
+        instrument_chat(mock_openai)
+
+        # Create a generator that raises an error mid-stream
+        def error_generator():
+            yield self._create_mock_chunk("Hello")
+            raise Exception("Stream Error")
+
+        self.mock_create.return_value = error_generator()
+
+        completions_instance = MockCompletions()
+        stream = completions_instance.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": "Hello"}],
+            stream=True
+        )
+
+        # Consume the stream and expect an error
+        with self.assertRaises(Exception) as context:
+            for chunk in stream:
+                pass
+
+        self.assertEqual(str(context.exception), "Stream Error")
+
+        # Verify span recorded the error
+        spans = _exporter.get_finished_spans()
+        self.assertEqual(len(spans), 1)
+        self.assertEqual(spans[0].status.status_code, trace.StatusCode.ERROR)
+
+
+class TestOpenAIAsyncStreamingChat(unittest.TestCase):
+    """Tests for async OpenAI streaming Chat Completions instrumentation."""
+
+    def setUp(self):
+        _exporter.clear()
+        self.mock_async_create = AsyncMock()
+        MockAsyncCompletions.create = self.mock_async_create
+
+    def _create_mock_chunk(self, content: str):
+        """Helper to create a mock streaming chunk."""
+        chunk = MagicMock()
+        chunk.choices = [MagicMock()]
+        chunk.choices[0].delta = MagicMock()
+        chunk.choices[0].delta.content = content
+        return chunk
+
+    def test_async_streaming_basic(self):
+        """Test that async streaming responses are traced correctly."""
+        instrument_async_chat(mock_openai)
+
+        # Create mock chunks
+        chunks = [
+            self._create_mock_chunk("Async"),
+            self._create_mock_chunk(" "),
+            self._create_mock_chunk("Stream"),
+        ]
+
+        # Create an async iterator
+        async def async_chunk_iterator():
+            for chunk in chunks:
+                yield chunk
+
+        self.mock_async_create.return_value = async_chunk_iterator()
+
+        async def run_async_stream_test():
+            completions_instance = MockAsyncCompletions()
+            stream = await completions_instance.create(
+                model="gpt-4-turbo",
+                messages=[{"role": "user", "content": "Hello"}],
+                stream=True
+            )
+
+            collected_content = []
+            async for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    collected_content.append(chunk.choices[0].delta.content)
+            return "".join(collected_content)
+
+        result = asyncio.run(run_async_stream_test())
+        self.assertEqual(result, "Async Stream")
+
+        # Verify span after stream is consumed
+        spans = _exporter.get_finished_spans()
+        self.assertEqual(len(spans), 1)
+
+        span = spans[0]
+        self.assertIn("gpt-4-turbo", span.name)
+        self.assertEqual(span.attributes["llm.request.async"], True)
+        self.assertEqual(span.attributes["llm.request.streaming"], True)
+        self.assertEqual(span.attributes["llm.response.content"], "Async Stream")
+        self.assertEqual(span.attributes["llm.response.chunk_count"], 3)
+
+    def test_async_streaming_error(self):
+        """Test that errors during async streaming are recorded."""
+        instrument_async_chat(mock_openai)
+
+        # Create an async generator that raises an error
+        async def error_async_generator():
+            yield self._create_mock_chunk("Start")
+            raise Exception("Async Stream Error")
+
+        self.mock_async_create.return_value = error_async_generator()
+
+        async def run_async_error_test():
+            completions_instance = MockAsyncCompletions()
+            stream = await completions_instance.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": "Hello"}],
+                stream=True
+            )
+            async for chunk in stream:
+                pass
+
+        with self.assertRaises(Exception) as context:
+            asyncio.run(run_async_error_test())
+
+        self.assertEqual(str(context.exception), "Async Stream Error")
+
+        # Verify span recorded the error
+        spans = _exporter.get_finished_spans()
+        self.assertEqual(len(spans), 1)
+        self.assertEqual(spans[0].status.status_code, trace.StatusCode.ERROR)
+
+
 if __name__ == "__main__":
     unittest.main()
