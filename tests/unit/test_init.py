@@ -1,11 +1,25 @@
 import unittest
 import os
+from opentelemetry import trace
 from agentbasis import init, flush, shutdown, AgentBasis
+
+
+def _reset_otel_state():
+    """
+    Reset OpenTelemetry global state for test isolation.
+    This prevents the 'Overriding of current TracerProvider is not allowed' warning.
+    """
+    # Reset the global tracer provider to allow setting a new one
+    # This uses internal API but is necessary for proper test isolation
+    trace._TRACER_PROVIDER_SET_ONCE._done = False
+    trace._TRACER_PROVIDER = None
 
 
 class TestAgentBasisInit(unittest.TestCase):
     
     def setUp(self):
+        # Reset OpenTelemetry global state
+        _reset_otel_state()
         # Reset the singleton before each test to ensure isolation
         AgentBasis._instance = None
         AgentBasis._shutdown_registered = False
@@ -39,6 +53,8 @@ class TestAgentBasisShutdown(unittest.TestCase):
     """Tests for graceful shutdown functionality."""
     
     def setUp(self):
+        # Reset OpenTelemetry global state
+        _reset_otel_state()
         # Reset the singleton before each test
         AgentBasis._instance = None
         AgentBasis._shutdown_registered = False
