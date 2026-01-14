@@ -1,6 +1,6 @@
 # AgentBasis Python SDK
 
-**Management & Observability SDK for AI Agents**
+**Management & Observability SDK for AI Agents in production**
 
 The **AgentBasis Python SDK** provides a simple, lightweight way to track the performance, traces, sessions, and behavior of AI agents. It sends data using the **OpenTelemetry (OTel)** standard, making it compatible with AgentBasis and other observability backends.
 
