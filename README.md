@@ -7,7 +7,8 @@ The **AgentBasis Python SDK** provides a simple, lightweight way to track the pe
 This is the **foundation SDK** that enables deep observability for coded agents built with:
 - Pure Python
 - LLM Providers: 
-    - Open AI
+    - OpenAI
+    - Anthropic
     - Gemini
 - Frameworks
     - LangChain
@@ -52,33 +53,63 @@ chat_with_user("Hello world")
 Automatically track all your OpenAI calls (models, tokens, prompts) with one line of code.
 
 ```python
-from agentbasis.llms import openai
+from agentbasis.llms.openai import instrument
 
 # Enable OpenAI instrumentation
-openai.instrument()
+instrument()
 
 # Now just use the OpenAI client as normal
-import openai as oa
-client = oa.OpenAI()
+from openai import OpenAI
+client = OpenAI()
 response = client.chat.completions.create(
     model="gpt-4",
     messages=[{"role": "user", "content": "Hello"}]
 )
 ```
 
-### 4. LangChain Integration
+### 4. Anthropic Integration
+Automatically track all your Anthropic Claude calls.
+
+```python
+from agentbasis.llms.anthropic import instrument
+
+# Enable Anthropic instrumentation
+instrument()
+
+# Now just use the Anthropic client as normal
+from anthropic import Anthropic
+client = Anthropic()
+response = client.messages.create(
+    model="claude-3-opus-20240229",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Hello"}]
+)
+```
+
+### 5. LangChain Integration
 Automatically track chains, tools, and LLM calls in LangChain.
 
 ```python
-from agentbasis.frameworks import langchain
+from agentbasis.frameworks.langchain import instrument
 
 # Enable LangChain instrumentation
-langchain.instrument()
+instrument()
 
 # Your existing LangChain code...
 from langchain.llms import OpenAI
 llm = OpenAI()
 llm.predict("Hello world")
+```
+
+### 6. Track Users (Optional)
+Associate traces with specific users to debug issues and see per-user analytics.
+
+```python
+# Set the current user (from your auth system)
+agentbasis.set_user(current_user.id)
+
+# All subsequent LLM calls will be tagged with this user
+response = client.chat.completions.create(...)
 ```
 
 ## Core Concepts
@@ -91,4 +122,3 @@ llm.predict("Hello world")
 After every version update: python -m build (to build the latest version and update)
 
 Install the sdk for testing:  `pip install git+https://github.com/AgentBasis/agentbasis-python-sdk.git`
-
