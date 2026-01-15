@@ -5,6 +5,8 @@ import json
 from opentelemetry import trace, context as otel_context
 from opentelemetry.trace import Status, StatusCode, Span
 
+from agentbasis.context import inject_context_to_span
+
 # Try to import LangChain types. If not available, we create dummy classes
 # so the code doesn't crash on import (though instrument() will check this).
 try:
@@ -125,6 +127,9 @@ class AgentBasisCallbackHandler(BaseCallbackHandler):
         """
         Start a new span, optionally as a child of a parent span.
         
+        Automatically injects user/session context (user_id, session_id, 
+        conversation_id, metadata) from agentbasis.context.
+        
         Args:
             span_name: Name for the new span
             parent_run_id: The run_id of the parent operation (if any)
@@ -144,6 +149,9 @@ class AgentBasisCallbackHandler(BaseCallbackHandler):
         else:
             # No parent, start a root span
             span = tracer.start_span(span_name)
+        
+        # Inject user/session context (user_id, session_id, etc.)
+        inject_context_to_span(span)
         
         return span
     
