@@ -2,8 +2,8 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
 import json
 
-from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
+from opentelemetry import trace, context as otel_context
+from opentelemetry.trace import Status, StatusCode, Span
 
 # Try to import LangChain types. If not available, we create dummy classes
 # so the code doesn't crash on import (though instrument() will check this).
@@ -100,18 +100,65 @@ class AgentBasisCallbackHandler(BaseCallbackHandler):
     - Chain execution (on_chain_start/end/error)
     - Tool invocations (on_tool_start/end/error)
     - Retriever operations (on_retriever_start/end/error)
+    - Parent-child span relationships (nested traces)
     
     Usage:
         from agentbasis.frameworks.langchain import AgentBasisCallbackHandler
         
         handler = AgentBasisCallbackHandler()
         chain.invoke({"query": "..."}, config={"callbacks": [handler]})
+    
+    Trace Structure Example:
+        └─ langchain.chain.RetrievalQA
+           ├─ langchain.retriever.VectorStoreRetriever
+           └─ langchain.llm.ChatOpenAI
     """
     
     def __init__(self):
         super().__init__()
         # Track active spans by run_id to close them later
-        self.spans: Dict[UUID, trace.Span] = {}
+        self.spans: Dict[UUID, Span] = {}
+        # Track span contexts for parent-child relationships
+        self.span_contexts: Dict[UUID, otel_context.Context] = {}
+    
+    def _start_span(self, span_name: str, parent_run_id: Optional[UUID] = None) -> Span:
+        """
+        Start a new span, optionally as a child of a parent span.
+        
+        Args:
+            span_name: Name for the new span
+            parent_run_id: The run_id of the parent operation (if any)
+            
+        Returns:
+            The newly created span
+        """
+        tracer = _get_tracer()
+        
+        # Check if we have a parent span to nest under
+        if parent_run_id and parent_run_id in self.spans:
+            parent_span = self.spans[parent_run_id]
+            # Create a context with the parent span
+            parent_context = trace.set_span_in_context(parent_span)
+            # Start the new span as a child
+            span = tracer.start_span(span_name, context=parent_context)
+        else:
+            # No parent, start a root span
+            span = tracer.start_span(span_name)
+        
+        return span
+    
+    def _store_span(self, run_id: Optional[UUID], span: Span) -> None:
+        """Store a span for later retrieval and for use as a parent."""
+        if run_id:
+            self.spans[run_id] = span
+    
+    def _end_span(self, run_id: Optional[UUID], status: Status) -> Optional[Span]:
+        """End a span and remove it from tracking."""
+        span = self.spans.pop(run_id, None) if run_id else None
+        if span:
+            span.set_status(status)
+            span.end()
+        return span
 
     # ==================== LLM Callbacks ====================
     
@@ -120,7 +167,7 @@ class AgentBasisCallbackHandler(BaseCallbackHandler):
     ) -> Any:
         """Run when LLM starts running."""
         run_id = kwargs.get("run_id")
-        tracer = _get_tracer()
+        parent_run_id = kwargs.get("parent_run_id")
         
         # Extract model info
         llm_info = _extract_llm_info(serialized)
@@ -128,7 +175,7 @@ class AgentBasisCallbackHandler(BaseCallbackHandler):
         class_name = llm_info.get("class_name", "LLM")
         
         span_name = f"langchain.llm.{class_name}"
-        span = tracer.start_span(span_name)
+        span = self._start_span(span_name, parent_run_id)
         
         # Set attributes
         span.set_attribute("llm.system", "langchain")
@@ -136,8 +183,7 @@ class AgentBasisCallbackHandler(BaseCallbackHandler):
         span.set_attribute("llm.request.prompts", _safe_json_dumps(prompts))
         span.set_attribute("llm.request.prompt_count", len(prompts))
         
-        if run_id:
-            self.spans[run_id] = span
+        self._store_span(run_id, span)
 
     def on_llm_end(self, response: LLMResult, **kwargs: Any) -> Any:
         """Run when LLM ends running."""
@@ -176,7 +222,7 @@ class AgentBasisCallbackHandler(BaseCallbackHandler):
     ) -> Any:
         """Run when chain starts running."""
         run_id = kwargs.get("run_id")
-        tracer = _get_tracer()
+        parent_run_id = kwargs.get("parent_run_id")
         
         # Get chain name from serialized data
         chain_name = serialized.get("name")
@@ -185,13 +231,12 @@ class AgentBasisCallbackHandler(BaseCallbackHandler):
         chain_name = chain_name or "Chain"
         
         span_name = f"langchain.chain.{chain_name}"
-        span = tracer.start_span(span_name)
+        span = self._start_span(span_name, parent_run_id)
         
         span.set_attribute("langchain.chain.name", chain_name)
         span.set_attribute("langchain.chain.inputs", _safe_json_dumps(inputs))
         
-        if run_id:
-            self.spans[run_id] = span
+        self._store_span(run_id, span)
 
     def on_chain_end(self, outputs: Dict[str, Any], **kwargs: Any) -> Any:
         """Run when chain ends running."""
@@ -220,7 +265,7 @@ class AgentBasisCallbackHandler(BaseCallbackHandler):
     ) -> Any:
         """Run when tool starts running."""
         run_id = kwargs.get("run_id")
-        tracer = _get_tracer()
+        parent_run_id = kwargs.get("parent_run_id")
         
         # Get tool name
         tool_name = serialized.get("name")
@@ -229,7 +274,7 @@ class AgentBasisCallbackHandler(BaseCallbackHandler):
         tool_name = tool_name or "Tool"
         
         span_name = f"langchain.tool.{tool_name}"
-        span = tracer.start_span(span_name)
+        span = self._start_span(span_name, parent_run_id)
         
         span.set_attribute("langchain.tool.name", tool_name)
         span.set_attribute("langchain.tool.input", input_str)
@@ -238,8 +283,7 @@ class AgentBasisCallbackHandler(BaseCallbackHandler):
         if "description" in serialized:
             span.set_attribute("langchain.tool.description", serialized["description"])
         
-        if run_id:
-            self.spans[run_id] = span
+        self._store_span(run_id, span)
 
     def on_tool_end(self, output: str, **kwargs: Any) -> Any:
         """Run when tool ends running."""
@@ -268,7 +312,7 @@ class AgentBasisCallbackHandler(BaseCallbackHandler):
     ) -> Any:
         """Run when retriever starts running."""
         run_id = kwargs.get("run_id")
-        tracer = _get_tracer()
+        parent_run_id = kwargs.get("parent_run_id")
         
         # Get retriever name
         retriever_name = serialized.get("name")
@@ -277,13 +321,12 @@ class AgentBasisCallbackHandler(BaseCallbackHandler):
         retriever_name = retriever_name or "Retriever"
         
         span_name = f"langchain.retriever.{retriever_name}"
-        span = tracer.start_span(span_name)
+        span = self._start_span(span_name, parent_run_id)
         
         span.set_attribute("langchain.retriever.name", retriever_name)
         span.set_attribute("langchain.retriever.query", query)
         
-        if run_id:
-            self.spans[run_id] = span
+        self._store_span(run_id, span)
 
     def on_retriever_end(self, documents: Sequence[Document], **kwargs: Any) -> Any:
         """Run when retriever ends running."""
