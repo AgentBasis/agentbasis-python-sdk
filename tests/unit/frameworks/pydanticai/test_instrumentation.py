@@ -33,20 +33,20 @@ class TestInstrumentFunction(TestPydanticAIInstrumentation):
     
     def test_instrument_without_pydantic_ai_warns(self):
         """Test that instrument() warns when pydantic-ai is not installed."""
-        # Import fresh to ensure no cached pydantic_ai
-        from agentbasis.frameworks.pydanticai import instrument
+        import agentbasis.frameworks.pydanticai.instrumentation as instr
+        instr._instrumented = False
         
-        with patch.dict(sys.modules, {'pydantic_ai': None}):
-            # Should not raise, just warn
+        # Patch the import to raise ImportError
+        original_import = __import__
+        
+        def mock_import(name, *args, **kwargs):
+            if name == 'pydantic_ai':
+                raise ImportError("No module named 'pydantic_ai'")
+            return original_import(name, *args, **kwargs)
+        
+        with patch('builtins.__import__', side_effect=mock_import):
             with self.assertWarns(ImportWarning):
-                # Force reimport to trigger the ImportError path
-                import agentbasis.frameworks.pydanticai.instrumentation as instr
-                instr._instrumented = False
-                
-                # Mock the import to raise ImportError
-                with patch.object(instr, 'instrument') as mock_instrument:
-                    mock_instrument.side_effect = lambda **kwargs: None
-                    # This won't actually warn in the mock, but tests the path exists
+                instr.instrument()
 
     def test_instrument_is_idempotent(self):
         """Test that calling instrument() multiple times is safe."""
