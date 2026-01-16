@@ -12,6 +12,7 @@ This is the **foundation SDK** that enables deep observability for coded agents 
     - Gemini
 - Frameworks
     - LangChain
+    - Pydantic AI
 
 ## Installation
 
@@ -87,29 +88,86 @@ response = client.messages.create(
 ```
 
 ### 5. LangChain Integration
-Automatically track chains, tools, and LLM calls in LangChain.
+Track chains, tools, retrievers, and LLM calls in LangChain with full parent-child span relationships.
 
 ```python
-from agentbasis.frameworks.langchain import instrument
+from agentbasis.frameworks.langchain import get_callback_handler
 
-# Enable LangChain instrumentation
-instrument()
+# Create a callback handler
+handler = get_callback_handler()
 
-# Your existing LangChain code...
-from langchain.llms import OpenAI
-llm = OpenAI()
-llm.predict("Hello world")
+# Pass it to your LangChain calls
+from langchain_openai import ChatOpenAI
+llm = ChatOpenAI(model="gpt-4")
+response = llm.invoke("Hello world", config={"callbacks": [handler]})
 ```
 
-### 6. Track Users (Optional)
-Associate traces with specific users to debug issues and see per-user analytics.
+For chains and agents, pass the callback handler in the config:
+
+```python
+from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate
+from agentbasis.frameworks.langchain import get_callback_config
+
+# Use get_callback_config() for convenience
+chain = LLMChain(llm=llm, prompt=PromptTemplate.from_template("{query}"))
+result = chain.invoke({"query": "What is AI?"}, config=get_callback_config())
+```
+
+### 6. Pydantic AI Integration
+Track Pydantic AI agents with built-in OpenTelemetry support.
+
+```python
+from agentbasis.frameworks.pydanticai import instrument
+
+# Enable global instrumentation for all Pydantic AI agents
+instrument()
+
+# Your agents are now automatically traced
+from pydantic_ai import Agent
+agent = Agent("openai:gpt-4")
+result = agent.run_sync("Hello!")
+```
+
+For per-agent control with user context:
+
+```python
+from agentbasis.frameworks.pydanticai import create_traced_agent
+
+# Create an agent pre-configured with tracing and context
+agent = create_traced_agent(
+    "openai:gpt-4",
+    system_prompt="You are a helpful assistant."
+)
+
+# Set user context - it will be included in traces
+agentbasis.set_user("user-123")
+result = agent.run_sync("Hello!")
+```
+
+### 7. Track Users & Sessions (Optional)
+Associate traces with specific users and sessions to debug issues and see per-user analytics.
 
 ```python
 # Set the current user (from your auth system)
 agentbasis.set_user(current_user.id)
 
-# All subsequent LLM calls will be tagged with this user
+# Optionally set session and conversation IDs
+agentbasis.set_session("session-abc")
+agentbasis.set_conversation("conv-123")
+
+# All subsequent LLM calls will be tagged with this context
 response = client.chat.completions.create(...)
+```
+
+Or use the context manager for scoped context:
+
+```python
+from agentbasis import context
+
+with context(user_id="user-123", session_id="session-abc"):
+    # All traces in this block include the context
+    response = client.chat.completions.create(...)
 ```
 
 ## Core Concepts
