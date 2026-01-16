@@ -21,10 +21,12 @@ from .instrumentation import (
     instrument,
     get_instrumentation_settings,
     get_metadata_callback,
+    create_traced_agent,
 )
 
 __all__ = [
     "instrument",
     "get_instrumentation_settings",
     "get_metadata_callback",
+    "create_traced_agent",
 ]
