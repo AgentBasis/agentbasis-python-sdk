@@ -72,11 +72,11 @@ class AgentBasis:
         self.shutdown()
 
     @classmethod
-    def initialize(cls, api_key: Optional[str] = None, api_url: Optional[str] = None, agent_id: Optional[str] = None) -> 'AgentBasis':
+    def initialize(cls, api_key: Optional[str] = None, agent_id: Optional[str] = None) -> 'AgentBasis':
         """
         Initializes the global AgentBasis client.
         """
-        config = Config(api_key=api_key, api_url=api_url, agent_id=agent_id)
+        config = Config(api_key=api_key, agent_id=agent_id)
         config.validate()
         
         cls._instance = cls(config)

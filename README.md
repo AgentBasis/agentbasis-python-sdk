@@ -174,9 +174,16 @@ with context(user_id="user-123", session_id="session-abc"):
 
 - **OpenTelemetry**: We use OTel under the hood for maximum compatibility.
 - **Spans**: Every action (function call, LLM request) is recorded as a Span.
-- **Transport**: Data is batched and sent asynchronously to AgentBasis Backend service
+- **Transport**: Data is batched and sent asynchronously to the AgentBasis backend.
+
+## Documentation
+
+For full documentation, visit [docs.agentbasis.co](https://docs.agentbasis.co).
 
 ## Notes:
 After every version update: python -m build (to build the latest version and update)
-
 Install the sdk for testing:  `pip install git+https://github.com/AgentBasis/agentbasis-python-sdk.git`
+
+## License
+MIT License - see [LICENSE](LICENSE) for details.
+
