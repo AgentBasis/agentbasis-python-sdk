@@ -7,11 +7,40 @@ name = "agentbasis"
 version = "0.1.0"
 description = "Management & Observability SDK for AI Agents"
 readme = "README.md"
+license = {text = "MIT"}
 requires-python = ">=3.8"
+authors = [
+    {name = "AgentBasis", email = "support@agentbasis.co"}
+]
+maintainers = [
+    {name = "AgentBasis", email = "support@agentbasis.co"}
+]
+keywords = [
+    "ai",
+    "agents",
+    "observability",
+    "tracing",
+    "opentelemetry",
+    "llm",
+    "openai",
+    "anthropic",
+    "langchain",
+    "monitoring",
+    "telemetry",
+]
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Monitoring",
 ]
 dependencies = [
     "requests>=2.25.0",
@@ -23,4 +52,6 @@ dependencies = [
 
 [project.urls]
 "Homepage" = "https://agentbasis.co"
+"Documentation" = "https://docs.agentbasis.co"
+"Repository" = "https://github.com/AgentBasis/agentbasis-python-sdk"
 "Bug Tracker" = "https://github.com/AgentBasis/agentbasis-python-sdk/issues"
