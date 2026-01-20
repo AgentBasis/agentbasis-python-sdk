@@ -31,7 +31,7 @@ class AgentBasisContext:
         with AgentBasisContext(user_id="user-123", session_id="sess-456"):
             response = client.chat.completions.create(...)
             # This span will have user_id and session_id attributes
-    """
+    """ 
     
     def __init__(
         self,
