@@ -7,8 +7,11 @@ class Config:
     Handles API keys and Agent IDs.
     """
     def __init__(self, api_key: Optional[str] = None, agent_id: Optional[str] = None):
-        self.api_key = api_key or os.environ.get("AGENTBASIS_API_KEY") # Get API Key from the arguments first, if not provided, try to get it from the environment variables.
-        self.agent_id = agent_id or os.environ.get("AGENTBASIS_AGENT_ID") # Get Agent ID from the arguments first, if not provided, try to get it from the environment variables.
+        self.api_key = api_key or os.environ.get("AGENTBASIS_API_KEY")
+        self.agent_id = agent_id or os.environ.get("AGENTBASIS_AGENT_ID")
+        
+        # Backend endpoint - not user-configurable, but can be overridden via env var for testing
+        self.api_url = os.environ.get("AGENTBASIS_API_URL", "https://api.agentbasis.co")
 
     def validate(self):
         """
