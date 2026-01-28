@@ -42,7 +42,7 @@ class AgentBasis:
         endpoint = f"{config.api_url}/api/v1/traces" 
         exporter = OTLPSpanExporter(
             endpoint=endpoint,
-            headers={"Authorization": f"Bearer {config.api_key}"}
+            headers={"x-api-key": config.api_key}
         )
 
         # 4. Add Batch Processor (Background thread for sending)
