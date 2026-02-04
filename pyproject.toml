@@ -7,7 +7,6 @@ name = "agentbasis"
 version = "0.1.0"
 description = "Management & Observability SDK for AI Agents"
 readme = "README.md"
-license = {text = "MIT"}
 requires-python = ">=3.8"
 authors = [
     {name = "AgentBasis", email = "support@agentbasis.co"}
