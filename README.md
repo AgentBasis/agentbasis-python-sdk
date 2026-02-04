@@ -180,9 +180,9 @@ with context(user_id="user-123", session_id="session-abc"):
 
 For full documentation, visit [docs.agentbasis.co](https://docs.agentbasis.co).
 
-## Notes:
-After every version update: python -m build (to build the latest version and update)
-Install the sdk for testing:  `pip install git+https://github.com/AgentBasis/agentbasis-python-sdk.git`
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
 
 ## License
 MIT License - see [LICENSE](LICENSE) for details.

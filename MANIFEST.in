@@ -1,3 +1,5 @@
 include README.md
 include LICENSE
 include CHANGELOG.md
+include CONTRIBUTING.md
+prune z-service-tests
