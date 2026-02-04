@@ -37,6 +37,37 @@ python -m build
 
 This updates the distribution files in `dist/`.
 
+## Versioning & Releasing to PyPI
+
+We use [Semantic Versioning](https://semver.org/):
+
+| Change Type | Version Bump | Example |
+|-------------|--------------|---------|
+| Bug fix | Patch | `0.1.0` → `0.1.1` |
+| New feature (backward compatible) | Minor | `0.1.0` → `0.2.0` |
+| Breaking change | Major | `0.1.0` → `1.0.0` |
+
+### To Release a New Version
+
+1. Update the version in `pyproject.toml`:
+   ```toml
+   version = "0.1.1"
+   ```
+
+2. Update `CHANGELOG.md` with the changes
+
+3. Build the package:
+   ```bash
+   python -m build
+   ```
+
+4. Upload to PyPI:
+   ```bash
+   python -m twine upload dist/*
+   ```
+
+**Note:** PyPI does not allow overwriting existing versions. Once a version is published, you must increment the version number for any changes or fixes.
+
 ## Testing Locally
 
 ### Install from Local Build
