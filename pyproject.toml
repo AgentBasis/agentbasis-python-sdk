@@ -54,3 +54,6 @@ dependencies = [
 "Documentation" = "https://docs.agentbasis.co"
 "Repository" = "https://github.com/AgentBasis/agentbasis-python-sdk"
 "Bug Tracker" = "https://github.com/AgentBasis/agentbasis-python-sdk/issues"
+
+[tool.setuptools]
+license-files = []
