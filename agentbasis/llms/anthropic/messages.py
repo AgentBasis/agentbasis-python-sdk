@@ -267,9 +267,10 @@ class _WrappedAsyncStreamManager:
         self._span = span
         self._start_time = start_time
         self._first_token_time = None
+        self._content_parts = []
 
-        async def __aenter__(self):
-            return self
+    async def __aenter__(self):
+        return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         try:
@@ -309,7 +310,7 @@ class _WrappedAsyncStreamManager:
                                            int((self._first_token_time - self._start_time) * 1000))
                 self._content_parts.append(text)
                 yield text
-            return text_stream_generator()
+        return text_stream_generator()
     
     async def get_final_message(self):
         """Proxy to get_final_message method"""
@@ -335,7 +336,6 @@ def instrument_messages(anthropic_module: Any):
         return
 
     original_create = Messages.create
-    Messages.create = wrapped_create
     original_stream = Messages.stream
 
     @functools.wraps(original_stream)
@@ -442,7 +442,7 @@ def instrument_async_messages(anthropic_module: Any):
     
     AsyncMessages.stream = wrapped_async_stream
 
-    
+
     @functools.wraps(original_async_create)
     async def wrapped_async_create(self, *args, **kwargs):
         tracer = _get_tracer()
