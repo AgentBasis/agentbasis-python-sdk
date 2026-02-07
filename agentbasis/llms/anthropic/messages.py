@@ -249,6 +249,17 @@ class _WrappedStreamManager:
             self.content_parts.append(text)
             yield text
 
+    def get_final_message(self):
+        """Proxy to get_final_message method"""
+        return self.stream_manager.get_final_message()  
+
+    def get_final_text(self):
+        """Proxy to get_final_text"""
+        return self.stream_manager.get_final_text()
+
+def _wrap_stream_manager(stream_manager, span: Span, start_time: float):
+    return _WrappedStreamManager(stream_manager, span, start_time)
+
     
 
 
