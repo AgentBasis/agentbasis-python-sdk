@@ -236,7 +236,18 @@ class _WrappedStreamManager:
                         self.content_parts.append(event.delta.text)
             yield event
         
-        self._span.set_attribute("llm.response.chunk_count", chunk_count)
+        self.span.set_attribute("llm.response.chunk_count", chunk_count)
+
+    @property
+    def text_stream(self):
+        """Proxy to text_stream property"""
+        for text in self.stream_manager.text_stream:
+            if self.first_token_time is None:
+                self.first_token_time = time.time()
+                self.span.set_attribute("llm.response.first_token_ms", 
+                                       int((self.first_token_time - self.start_time) * 1000))
+            self.content_parts.append(text)
+            yield text
 
     
 
