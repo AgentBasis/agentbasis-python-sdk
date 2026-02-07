@@ -215,6 +215,29 @@ class _WrappedStreamManager:
         finally:
             self.span.end()
         return False
+
+    def __iter__(self):
+        """Iterate over the streaming response."""
+        chunk_count=0
+        for event in self.stream_manager:
+            chunk_count += 1
+
+            #Time to first token
+            if self.first_token_time is None and hasattr(event, 'type'):
+                if event.type == 'content_block_delta':
+                    self.first_token_time = time.time()
+                    self.span.set_attribute("llm.response.first_token_ms", 
+                                           int((self.first_token_time - self.start_time) * 1000))
+
+            #Extract content from delta events
+            if hasattr(event, 'type'):
+                if event.type == 'content_block_delta':
+                    if hasattr(event, 'delta') and hasattr(event.delta, 'text'):
+                        self.content_parts.append(event.delta.text)
+            yield event
+        
+        self._span.set_attribute("llm.response.chunk_count", chunk_count)
+
     
 
 
