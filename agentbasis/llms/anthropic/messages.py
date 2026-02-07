@@ -197,13 +197,32 @@ def instrument_messages(anthropic_module: Any):
     except ImportError:
         return
 
-    # Existing .create() instrumentation
     original_create = Messages.create
-    # ... (keep existing wrapped_create code)
     Messages.create = wrapped_create
-
-    # NEW: Add .stream() instrumentation
     original_stream = Messages.stream
+
+    @functools.wraps(original_stream)
+    def wrapped_stream(self, *args, **kwargs):
+        tracer = _get_tracer()
+        model = kwargs.get("model", "unknown")
+        messages = kwargs.get("messages", [])
+        
+        span_name = f"anthropic.messages.stream {model}"
+        span = tracer.start_span(span_name)
+        start_time = time.time()
+        _set_request_attributes(span, model, messages, is_streaming=True)
+        
+        try:
+            stream_manager = original_stream(self, *args, **kwargs)
+            # Wrap the stream manager to track events
+            return _wrap_stream_manager(stream_manager, span, start_time)
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(Status(StatusCode.ERROR, str(e)))
+            span.end()
+            raise
+    
+    Messages.stream = wrapped_stream
 
 
 class _WrappedStreamManager:
