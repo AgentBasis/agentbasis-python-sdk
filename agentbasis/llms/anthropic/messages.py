@@ -185,6 +185,38 @@ async def _wrap_async_stream(stream, span: Span, start_time: float) -> AsyncGene
     finally:
         span.end()
 
+class _WrappedStreamManager:
+    """
+    Wraps a streaming response to track streaming events.
+    """
+    def __init__(self, stream_manager, span: Span, start_time: float):
+        self.stream_manager = stream_manager
+        self.span = span
+        self.start_time = start_time
+        self.content_parts = []
+        self.chunk_count = 0
+        self.first_token_time = None
+        self.input_tokens = 0
+        self.output_tokens = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        #finalise span when context manager exits
+        try:
+            if exc_type is None:
+                final_message = self.stream_manager.get_final_message()
+                _set_response_attributes(self.span, final_message)
+                self.span.set_status(Status(StatusCode.OK))
+            else:
+                self.span.record_exception(exc_val)
+                self.span.set_status(Status(StatusCode.ERROR, str(exc_val)))
+        finally:
+            self.span.end()
+        return False
+    
+
 
 def instrument_messages(anthropic_module: Any):
     """
