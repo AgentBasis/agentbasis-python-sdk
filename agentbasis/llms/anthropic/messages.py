@@ -412,11 +412,37 @@ def instrument_async_messages(anthropic_module: Any):
     """
     try:
         from anthropic.resources.messages import AsyncMessages
+        from anthropic.lib.streaming import AsyncMessageStreamManager
     except ImportError:
         return
 
     original_async_create = AsyncMessages.create
+    original_async_stream = AsyncMessages.stream
 
+    @functools.wraps(original_async_stream)
+    async def wrapped_async_stream(self, *args, **kwargs):
+        tracer = _get_tracer()
+        model = kwargs.get("model", "unknown")
+        messages = kwargs.get("messages", [])
+        
+        span_name = f"anthropic.messages.stream {model}"
+        span = tracer.start_span(span_name)
+        start_time = time.time()
+        span.set_attribute("llm.request.async", True)
+        _set_request_attributes(span, model, messages, is_streaming=True)
+        
+        try:
+            stream_manager = await original_async_stream(self, *args, **kwargs)
+            return _wrap_async_stream_manager(stream_manager, span, start_time)
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(Status(StatusCode.ERROR, str(e)))
+            span.end()
+            raise
+    
+    AsyncMessages.stream = wrapped_async_stream
+
+    
     @functools.wraps(original_async_create)
     async def wrapped_async_create(self, *args, **kwargs):
         tracer = _get_tracer()
