@@ -284,8 +284,43 @@ class _WrappedAsyncStreamManager:
             self._span.end()
         return False
 
+    async def __aiter__(self):
+        chunk_count = 0
+        async for event in self._stream_manager:
+            chunk_count += 1
+            
+            if self._first_token_time is None and hasattr(event, 'type'):
+                if event.type == 'content_block_delta':
+                    self._first_token_time = time.time()
+                    self._span.set_attribute("llm.response.first_token_ms", 
+                                           int((self._first_token_time - self._start_time) * 1000))
+            yield event
+        
+        self._span.set_attribute("llm.response.chunk_count", chunk_count)
 
+    @property
+    def text_stream(self):
+        """Proxy to text_stream property"""
+        async def text_stream_generator():
+            async for text in self._stream_manager.text_stream:
+                if self._first_token_time is None:
+                    self._first_token_time = time.time()
+                    self._span.set_attribute("llm.response.first_token_ms", 
+                                           int((self._first_token_time - self._start_time) * 1000))
+                self._content_parts.append(text)
+                yield text
+            return text_stream_generator()
     
+    async def get_final_message(self):
+        """Proxy to get_final_message method"""
+        return await self._stream_manager.get_final_message()
+
+    async def get_final_text(self):
+        """Proxy to get_final_text"""
+        return await self._stream_manager.get_final_text()
+
+def _wrap_async_stream_manager(stream_manager, span: Span, start_time: float):
+    return _WrappedAsyncStreamManager(stream_manager, span, start_time)
 
 
 def instrument_messages(anthropic_module: Any):
