@@ -185,6 +185,27 @@ async def _wrap_async_stream(stream, span: Span, start_time: float) -> AsyncGene
     finally:
         span.end()
 
+
+def instrument_messages(anthropic_module: Any):
+    """
+    Instruments the synchronous Anthropic Messages API with OpenTelemetry.
+    Handles both regular and streaming responses.
+    """
+    try:
+        from anthropic.resources.messages import Messages
+        from anthropic.lib.streaming import MessageStreamManager
+    except ImportError:
+        return
+
+    # Existing .create() instrumentation
+    original_create = Messages.create
+    # ... (keep existing wrapped_create code)
+    Messages.create = wrapped_create
+
+    # NEW: Add .stream() instrumentation
+    original_stream = Messages.stream
+
+
 class _WrappedStreamManager:
     """
     Wraps a streaming response to track streaming events.
@@ -259,6 +280,9 @@ class _WrappedStreamManager:
 
 def _wrap_stream_manager(stream_manager, span: Span, start_time: float):
     return _WrappedStreamManager(stream_manager, span, start_time)
+
+
+
 
     
 
