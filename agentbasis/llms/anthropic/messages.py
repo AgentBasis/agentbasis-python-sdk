@@ -268,6 +268,22 @@ class _WrappedAsyncStreamManager:
         self._start_time = start_time
         self._first_token_time = None
 
+        async def __aenter__(self):
+            return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        try:
+            if exc_type is None:
+                final_message = await self._stream_manager.get_final_message()
+                _set_response_attributes(self._span, final_message)
+                self._span.set_status(Status(StatusCode.OK))
+            else:
+                self._span.record_exception(exc_val)
+                self._span.set_status(Status(StatusCode.ERROR, str(exc_val)))
+        finally:
+            self._span.end()
+        return False
+
 
     
 
