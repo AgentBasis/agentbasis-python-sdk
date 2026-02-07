@@ -261,7 +261,12 @@ class _WrappedStreamManager:
 def _wrap_stream_manager(stream_manager, span: Span, start_time: float):
     return _WrappedStreamManager(stream_manager, span, start_time)
 
-
+class _WrappedAsyncStreamManager:
+    def __init__(self, stream_manager, span: Span, start_time: float):
+        self._stream_manager = stream_manager
+        self._span = span
+        self._start_time = start_time
+        self._first_token_time = None
 
 
     
