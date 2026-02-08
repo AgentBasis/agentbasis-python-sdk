@@ -526,5 +526,218 @@ class TestAnthropicAsyncStreamingMessages(unittest.TestCase):
         self.assertEqual(spans[0].status.status_code, trace.StatusCode.ERROR)
 
 
+class TestAnthropicStreamMethod(unittest.TestCase):
+    """Tests for synchronous .stream() method with MessageStreamManager."""
+
+    def setUp(self):
+        _exporter.clear()
+        self.mock_stream = MagicMock()
+        MockMessages.stream = self.mock_stream
+
+    def _create_mock_event(self, event_type: str, text: str = None):
+        """Helper to create mock streaming events."""
+        event = MagicMock()
+        event.type = event_type
+        if event_type == 'content_block_delta' and text is not None:
+            event.delta = MagicMock()
+            event.delta.text = text
+        return event
+
+    def test_stream_with_context_manager(self):
+        """Test .stream() with context manager and text_stream."""
+        instrument_messages(mock_anthropic)
+
+        # Create events and final message
+        events = [
+            self._create_mock_event('content_block_delta', text="Hello"),
+            self._create_mock_event('content_block_delta', text=" "),
+            self._create_mock_event('content_block_delta', text="Stream"),
+        ]
+        
+        final_message = MagicMock()
+        mock_content = MagicMock()
+        mock_content.text = "Hello Stream"
+        final_message.content = [mock_content]
+        final_message.usage = MagicMock()
+        final_message.usage.input_tokens = 10
+        final_message.usage.output_tokens = 5
+        final_message.stop_reason = "end_turn"
+        
+        # Return stream manager
+        stream_manager = MockMessageStreamManager(events, final_message)
+        self.mock_stream.return_value = stream_manager
+
+        # Use with context manager
+        messages_instance = MockMessages()
+        with messages_instance.stream(
+            model="claude-3-opus-20240229",
+            messages=[{"role": "user", "content": "Hello"}]
+        ) as stream:
+            collected = []
+            for text in stream.text_stream:
+                collected.append(text)
+        
+        self.assertEqual("".join(collected), "Hello Stream")
+
+        # Verify span
+        spans = _exporter.get_finished_spans()
+        self.assertEqual(len(spans), 1)
+        
+        span = spans[0]
+        self.assertIn("claude-3-opus", span.name)
+        self.assertEqual(span.attributes["llm.system"], "anthropic")
+        self.assertEqual(span.attributes["llm.request.streaming"], True)
+        self.assertEqual(span.attributes["llm.response.content"], "Hello Stream")
+        self.assertEqual(span.attributes["llm.usage.prompt_tokens"], 10)
+        self.assertEqual(span.attributes["llm.usage.completion_tokens"], 5)
+
+    def test_stream_iteration_over_events(self):
+        """Test iterating over raw events from .stream()."""
+        instrument_messages(mock_anthropic)
+
+        events = [
+            self._create_mock_event('content_block_delta', text="Event"),
+            self._create_mock_event('content_block_delta', text="1"),
+        ]
+        
+        final_message = MagicMock()
+        mock_content = MagicMock()
+        mock_content.text = "Event1"
+        final_message.content = [mock_content]
+        final_message.usage = MagicMock()
+        final_message.usage.input_tokens = 5
+        final_message.usage.output_tokens = 2
+        
+        stream_manager = MockMessageStreamManager(events, final_message)
+        self.mock_stream.return_value = stream_manager
+
+        messages_instance = MockMessages()
+        with messages_instance.stream(
+            model="claude-3-opus-20240229",
+            messages=[{"role": "user", "content": "Test"}]
+        ) as stream:
+            event_count = 0
+            for event in stream:
+                event_count += 1
+        
+        self.assertEqual(event_count, 2)
+
+        spans = _exporter.get_finished_spans()
+        self.assertEqual(len(spans), 1)
+
+    def test_stream_error_handling(self):
+        """Test error handling in .stream()."""
+        instrument_messages(mock_anthropic)
+
+        # Mock stream() to raise an error
+        self.mock_stream.side_effect = Exception("Stream Init Error")
+
+        messages_instance = MockMessages()
+        
+        with self.assertRaises(Exception) as context:
+            messages_instance.stream(
+                model="claude-3-opus-20240229",
+                messages=[{"role": "user", "content": "Test"}]
+            )
+        
+        self.assertEqual(str(context.exception), "Stream Init Error")
+
+        # Verify span recorded the error
+        spans = _exporter.get_finished_spans()
+        self.assertEqual(len(spans), 1)
+        self.assertEqual(spans[0].status.status_code, trace.StatusCode.ERROR)
+
+
+class TestAnthropicAsyncStreamMethod(unittest.TestCase):
+    """Tests for async .stream() method with AsyncMessageStreamManager."""
+
+    def setUp(self):
+        _exporter.clear()
+        self.mock_async_stream = AsyncMock()
+        MockAsyncMessages.stream = self.mock_async_stream
+
+    def _create_mock_event(self, event_type: str, text: str = None):
+        """Helper to create mock streaming events."""
+        event = MagicMock()
+        event.type = event_type
+        if event_type == 'content_block_delta' and text is not None:
+            event.delta = MagicMock()
+            event.delta.text = text
+        return event
+
+    def test_async_stream_with_context_manager(self):
+        """Test async .stream() with context manager and text_stream."""
+        instrument_async_messages(mock_anthropic)
+
+        # Create events and final message
+        events = [
+            self._create_mock_event('content_block_delta', text="Async"),
+            self._create_mock_event('content_block_delta', text=" "),
+            self._create_mock_event('content_block_delta', text="Stream"),
+        ]
+        
+        final_message = MagicMock()
+        mock_content = MagicMock()
+        mock_content.text = "Async Stream"
+        final_message.content = [mock_content]
+        final_message.usage = MagicMock()
+        final_message.usage.input_tokens = 12
+        final_message.usage.output_tokens = 6
+        final_message.stop_reason = "end_turn"
+        
+        stream_manager = MockAsyncMessageStreamManager(events, final_message)
+        self.mock_async_stream.return_value = stream_manager
+
+        async def run_test():
+            messages_instance = MockAsyncMessages()
+            async with await messages_instance.stream(
+                model="claude-3-sonnet-20240229",
+                messages=[{"role": "user", "content": "Hello"}]
+            ) as stream:
+                collected = []
+                async for text in stream.text_stream:
+                    collected.append(text)
+                return "".join(collected)
+        
+        result = asyncio.run(run_test())
+        self.assertEqual(result, "Async Stream")
+
+        # Verify span
+        spans = _exporter.get_finished_spans()
+        self.assertEqual(len(spans), 1)
+        
+        span = spans[0]
+        self.assertIn("claude-3-sonnet", span.name)
+        self.assertEqual(span.attributes["llm.request.async"], True)
+        self.assertEqual(span.attributes["llm.request.streaming"], True)
+        self.assertEqual(span.attributes["llm.response.content"], "Async Stream")
+        self.assertEqual(span.attributes["llm.usage.prompt_tokens"], 12)
+        self.assertEqual(span.attributes["llm.usage.completion_tokens"], 6)
+
+    def test_async_stream_error_handling(self):
+        """Test error handling in async .stream()."""
+        instrument_async_messages(mock_anthropic)
+
+        # Mock stream() to raise an error
+        self.mock_async_stream.side_effect = Exception("Async Stream Init Error")
+
+        async def run_error_test():
+            messages_instance = MockAsyncMessages()
+            await messages_instance.stream(
+                model="claude-3-opus-20240229",
+                messages=[{"role": "user", "content": "Test"}]
+            )
+        
+        with self.assertRaises(Exception) as context:
+            asyncio.run(run_error_test())
+        
+        self.assertEqual(str(context.exception), "Async Stream Init Error")
+
+        # Verify span recorded the error
+        spans = _exporter.get_finished_spans()
+        self.assertEqual(len(spans), 1)
+        self.assertEqual(spans[0].status.status_code, trace.StatusCode.ERROR)
+
+
 if __name__ == "__main__":
     unittest.main()
