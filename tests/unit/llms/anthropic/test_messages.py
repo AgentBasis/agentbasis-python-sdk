@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, AsyncMock
+import json
 import sys
 from pathlib import Path
 import types
@@ -744,6 +745,65 @@ class TestAnthropicAsyncStreamMethod(unittest.TestCase):
         spans = _exporter.get_finished_spans()
         self.assertEqual(len(spans), 1)
         self.assertEqual(spans[0].status.status_code, trace.StatusCode.ERROR)
+
+
+class TestAnthropicToolCountsAndNames(unittest.TestCase):
+    def setUp(self):
+        _exporter.clear()
+        self.mock_create = MagicMock()
+        MockMessages.create = self.mock_create
+
+    def test_llm_request_tool_count_is_set(self):
+        instrument_messages(mock_anthropic)
+
+        mock_response = MagicMock()
+        mock_content_block = MagicMock()
+        mock_content_block.text = "OK"
+        mock_response.content = [mock_content_block]
+        mock_response.usage.input_tokens = 1
+        mock_response.usage.output_tokens = 1
+        mock_response.stop_reason = "end_turn"
+        self.mock_create.return_value = mock_response
+
+        messages_instance = MockMessages()
+        messages_instance.create(
+            model="claude-3-opus-20240229",
+            max_tokens=16,
+            messages=[{"role": "user", "content": "hi"}],
+            tools=[{"name": "a"}, {"name": "b"}],
+        )
+
+        spans = _exporter.get_finished_spans()
+        self.assertEqual(len(spans), 1)
+        self.assertEqual(spans[0].attributes.get("llm.request.tool_count"), 2)
+
+    def test_llm_response_tool_use_names_is_set(self):
+        instrument_messages(mock_anthropic)
+
+        mock_response = MagicMock()
+        mock_response.content = [
+            {"type": "text", "text": "Calling a tool"},
+            {"type": "tool_use", "name": "get_weather"},
+        ]
+        mock_response.usage.input_tokens = 1
+        mock_response.usage.output_tokens = 1
+        mock_response.stop_reason = "tool_use"
+        self.mock_create.return_value = mock_response
+
+        messages_instance = MockMessages()
+        messages_instance.create(
+            model="claude-3-opus-20240229",
+            max_tokens=16,
+            messages=[{"role": "user", "content": "hi"}],
+        )
+
+        spans = _exporter.get_finished_spans()
+        self.assertEqual(len(spans), 1)
+        self.assertIn("llm.response.tool_use_names", spans[0].attributes)
+        self.assertEqual(
+            json.loads(spans[0].attributes["llm.response.tool_use_names"]),
+            ["get_weather"],
+        )
 
 
 if __name__ == "__main__":
