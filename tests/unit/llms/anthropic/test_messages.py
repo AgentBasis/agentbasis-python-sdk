@@ -1,8 +1,15 @@
 import unittest
 from unittest.mock import MagicMock, AsyncMock
 import sys
+from pathlib import Path
 import types
 import asyncio
+
+# When running this file directly (e.g. `python3 tests/.../test_messages.py`),
+# ensure the repository root is on sys.path so we import the local `agentbasis`.
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
