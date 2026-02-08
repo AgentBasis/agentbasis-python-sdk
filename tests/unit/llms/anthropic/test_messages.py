@@ -16,11 +16,81 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 mock_anthropic = types.ModuleType("anthropic")
 mock_resources = types.ModuleType("anthropic.resources")
 mock_messages_module = types.ModuleType("anthropic.resources.messages")
+mock_streaming_module = types.ModuleType("anthropic.lib.streaming")
+
+
+# Mock streaming classes
+class MockMessageStreamManager:
+    def __init__(self, events, final_message):
+        self._events = events
+        self._final_message = final_message
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return False
+    
+    def __iter__(self):
+        return iter(self._events)
+    
+    @property
+    def text_stream(self):
+        for event in self._events:
+            if event.type == 'content_block_delta' and hasattr(event, 'delta'):
+                yield event.delta.text
+    
+    def get_final_message(self):
+        return self._final_message
+    
+    def get_final_text(self):
+        parts = []
+        for block in self._final_message.content:
+            if hasattr(block, 'text'):
+                parts.append(block.text)
+        return "".join(parts)
+
+
+class MockAsyncMessageStreamManager:
+    def __init__(self, events, final_message):
+        self._events = events
+        self._final_message = final_message
+    
+    async def __aenter__(self):
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        return False
+    
+    async def __aiter__(self):
+        for event in self._events:
+            yield event
+    
+    @property
+    def text_stream(self):
+        async def gen():
+            for event in self._events:
+                if event.type == 'content_block_delta' and hasattr(event, 'delta'):
+                    yield event.delta.text
+        return gen()
+    
+    async def get_final_message(self):
+        return self._final_message
+    
+    async def get_final_text(self):
+        parts = []
+        for block in self._final_message.content:
+            if hasattr(block, 'text'):
+                parts.append(block.text)
+        return "".join(parts)
 
 
 # Create the sync Messages Class
 class MockMessages:
     def create(self, *args, **kwargs):
+        pass
+    
+    def stream(self, *args, **kwargs):
         pass
 
 
@@ -28,10 +98,15 @@ class MockMessages:
 class MockAsyncMessages:
     async def create(self, *args, **kwargs):
         pass
+    
+    async def stream(self, *args, **kwargs):
+        pass
 
 
 mock_messages_module.Messages = MockMessages
 mock_messages_module.AsyncMessages = MockAsyncMessages
+mock_streaming_module.MessageStreamManager = MockMessageStreamManager
+mock_streaming_module.AsyncMessageStreamManager = MockAsyncMessageStreamManager
 
 # Connect them
 mock_anthropic.resources = mock_resources
@@ -41,6 +116,8 @@ mock_resources.messages = mock_messages_module
 sys.modules["anthropic"] = mock_anthropic
 sys.modules["anthropic.resources"] = mock_resources
 sys.modules["anthropic.resources.messages"] = mock_messages_module
+sys.modules["anthropic.lib"] = types.ModuleType("anthropic.lib")
+sys.modules["anthropic.lib.streaming"] = mock_streaming_module
 # --- MOCK SETUP END ---
 
 # --- OTEL SETUP (Module level - shared across all tests) ---
