@@ -1,5 +1,6 @@
 from typing import Any, Generator, AsyncGenerator
 import functools
+import json
 import time
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode, Span
@@ -14,7 +15,13 @@ def _get_tracer():
     return trace.get_tracer("agentbasis.llms.anthropic")
 
 
-def _set_request_attributes(span: Span, model: str, messages: list, is_streaming: bool = False):
+def _set_request_attributes(
+    span: Span,
+    model: str,
+    messages: list,
+    tools: list = None,
+    is_streaming: bool = False,
+):
     """
     Set common request attributes on a span.
     """
@@ -26,6 +33,13 @@ def _set_request_attributes(span: Span, model: str, messages: list, is_streaming
     span.set_attribute("llm.request.messages", str(messages))
     if is_streaming:
         span.set_attribute("llm.request.streaming", True)
+    if tools is not None:
+        # Count only; do not store tool payloads or tool names on the request span.
+        try:
+            tool_count = len(tools) if isinstance(tools, list) else 1
+        except Exception:
+            tool_count = 1
+        span.set_attribute("llm.request.tool_count", tool_count)
 
 
 def _set_response_attributes(span: Span, response):
@@ -39,16 +53,27 @@ def _set_response_attributes(span: Span, response):
     - response.model
     - response.stop_reason
     """
-    # Extract text content from response
+    # Extract text content (and tool_use names) from response
     if response.content:
         text_parts = []
+        tool_use_names = []
         for block in response.content:
             if hasattr(block, 'text'):
                 text_parts.append(block.text)
             elif isinstance(block, dict) and block.get('type') == 'text':
                 text_parts.append(block.get('text', ''))
+            if hasattr(block, "type") and block.type == "tool_use":
+                name = getattr(block, "name", None)
+                if name:
+                    tool_use_names.append(name)
+            elif isinstance(block, dict) and block.get("type") == "tool_use":
+                name = block.get("name")
+                if name:
+                    tool_use_names.append(name)
         content = "".join(text_parts)
         span.set_attribute("llm.response.content", content)
+        if tool_use_names:
+            span.set_attribute("llm.response.tool_use_names", json.dumps(tool_use_names))
     
     # Set stop reason
     if hasattr(response, 'stop_reason') and response.stop_reason:
@@ -186,6 +211,141 @@ async def _wrap_async_stream(stream, span: Span, start_time: float) -> AsyncGene
         span.end()
 
 
+class _WrappedStreamManager:
+    """
+    Wraps a streaming response to track streaming events.
+    """
+    def __init__(self, stream_manager, span: Span, start_time: float):
+        self.stream_manager = stream_manager
+        self.span = span
+        self.start_time = start_time
+        self.content_parts = []
+        self.first_token_time = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        #finalise span when context manager exits
+        try:
+            if exc_type is None:
+                final_message = self.stream_manager.get_final_message()
+                _set_response_attributes(self.span, final_message)
+                self.span.set_status(Status(StatusCode.OK))
+            else:
+                self.span.record_exception(exc_val)
+                self.span.set_status(Status(StatusCode.ERROR, str(exc_val)))
+        finally:
+            self.span.end()
+        return False
+
+    def __iter__(self):
+        """Iterate over the streaming response."""
+        chunk_count=0
+        for event in self.stream_manager:
+            chunk_count += 1
+
+            #Time to first token
+            if self.first_token_time is None and hasattr(event, 'type'):
+                if event.type == 'content_block_delta':
+                    self.first_token_time = time.time()
+                    self.span.set_attribute("llm.response.first_token_ms", 
+                                           int((self.first_token_time - self.start_time) * 1000))
+
+            #Extract content from delta events
+            if hasattr(event, 'type'):
+                if event.type == 'content_block_delta':
+                    if hasattr(event, 'delta') and hasattr(event.delta, 'text'):
+                        self.content_parts.append(event.delta.text)
+            yield event
+        
+        self.span.set_attribute("llm.response.chunk_count", chunk_count)
+
+    @property
+    def text_stream(self):
+        """Proxy to text_stream property"""
+        for text in self.stream_manager.text_stream:
+            if self.first_token_time is None:
+                self.first_token_time = time.time()
+                self.span.set_attribute("llm.response.first_token_ms", 
+                                       int((self.first_token_time - self.start_time) * 1000))
+            self.content_parts.append(text)
+            yield text
+
+    def get_final_message(self):
+        """Proxy to get_final_message method"""
+        return self.stream_manager.get_final_message()  
+
+    def get_final_text(self):
+        """Proxy to get_final_text"""
+        return self.stream_manager.get_final_text()
+
+def _wrap_stream_manager(stream_manager, span: Span, start_time: float):
+    return _WrappedStreamManager(stream_manager, span, start_time)
+
+class _WrappedAsyncStreamManager:
+    def __init__(self, stream_manager, span: Span, start_time: float):
+        self._stream_manager = stream_manager
+        self._span = span
+        self._start_time = start_time
+        self._first_token_time = None
+        self._content_parts = []
+
+    async def __aenter__(self):
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        try:
+            if exc_type is None:
+                final_message = await self._stream_manager.get_final_message()
+                _set_response_attributes(self._span, final_message)
+                self._span.set_status(Status(StatusCode.OK))
+            else:
+                self._span.record_exception(exc_val)
+                self._span.set_status(Status(StatusCode.ERROR, str(exc_val)))
+        finally:
+            self._span.end()
+        return False
+
+    async def __aiter__(self):
+        chunk_count = 0
+        async for event in self._stream_manager:
+            chunk_count += 1
+            
+            if self._first_token_time is None and hasattr(event, 'type'):
+                if event.type == 'content_block_delta':
+                    self._first_token_time = time.time()
+                    self._span.set_attribute("llm.response.first_token_ms", 
+                                           int((self._first_token_time - self._start_time) * 1000))
+            yield event
+        
+        self._span.set_attribute("llm.response.chunk_count", chunk_count)
+
+    @property
+    def text_stream(self):
+        """Proxy to text_stream property"""
+        async def text_stream_generator():
+            async for text in self._stream_manager.text_stream:
+                if self._first_token_time is None:
+                    self._first_token_time = time.time()
+                    self._span.set_attribute("llm.response.first_token_ms", 
+                                           int((self._first_token_time - self._start_time) * 1000))
+                self._content_parts.append(text)
+                yield text
+        return text_stream_generator()
+    
+    async def get_final_message(self):
+        """Proxy to get_final_message method"""
+        return await self._stream_manager.get_final_message()
+
+    async def get_final_text(self):
+        """Proxy to get_final_text"""
+        return await self._stream_manager.get_final_text()
+
+def _wrap_async_stream_manager(stream_manager, span: Span, start_time: float):
+    return _WrappedAsyncStreamManager(stream_manager, span, start_time)
+
+
 def instrument_messages(anthropic_module: Any):
     """
     Instruments the synchronous Anthropic Messages API with OpenTelemetry.
@@ -193,16 +353,44 @@ def instrument_messages(anthropic_module: Any):
     """
     try:
         from anthropic.resources.messages import Messages
+        from anthropic.lib.streaming import MessageStreamManager
     except ImportError:
         return
 
     original_create = Messages.create
+    original_stream = Messages.stream
+
+    @functools.wraps(original_stream)
+    def wrapped_stream(self, *args, **kwargs):
+        tracer = _get_tracer()
+        model = kwargs.get("model", "unknown")
+        messages = kwargs.get("messages", [])
+        tools = kwargs.get("tools", None)
+        
+        span_name = f"anthropic.messages.stream {model}"
+        span = tracer.start_span(span_name)
+        start_time = time.time()
+        _set_request_attributes(span, model, messages, tools, is_streaming=True)
+        
+        try:
+            stream_manager = original_stream(self, *args, **kwargs)
+            # Wrap the stream manager to track events
+            return _wrap_stream_manager(stream_manager, span, start_time)
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(Status(StatusCode.ERROR, str(e)))
+            span.end()
+            raise
+    
+    Messages.stream = wrapped_stream
+
 
     @functools.wraps(original_create)
     def wrapped_create(self, *args, **kwargs):
         tracer = _get_tracer()
         model = kwargs.get("model", "unknown")
         messages = kwargs.get("messages", [])
+        tools = kwargs.get("tools", None)
         is_streaming = kwargs.get("stream", False)
 
         span_name = f"anthropic.messages.create {model}"
@@ -211,7 +399,7 @@ def instrument_messages(anthropic_module: Any):
             # For streaming, we need to manually manage the span lifecycle
             span = tracer.start_span(span_name)
             start_time = time.time()
-            _set_request_attributes(span, model, messages, is_streaming=True)
+            _set_request_attributes(span, model, messages, tools, is_streaming=True)
             
             try:
                 stream = original_create(self, *args, **kwargs)
@@ -225,7 +413,7 @@ def instrument_messages(anthropic_module: Any):
         else:
             # Non-streaming: use context manager
             with tracer.start_as_current_span(span_name) as span:
-                _set_request_attributes(span, model, messages)
+                _set_request_attributes(span, model, messages, tools)
 
                 try:
                     response = original_create(self, *args, **kwargs)
@@ -248,16 +436,44 @@ def instrument_async_messages(anthropic_module: Any):
     """
     try:
         from anthropic.resources.messages import AsyncMessages
+        from anthropic.lib.streaming import AsyncMessageStreamManager
     except ImportError:
         return
 
     original_async_create = AsyncMessages.create
+    original_async_stream = AsyncMessages.stream
+
+    @functools.wraps(original_async_stream)
+    async def wrapped_async_stream(self, *args, **kwargs):
+        tracer = _get_tracer()
+        model = kwargs.get("model", "unknown")
+        messages = kwargs.get("messages", [])
+        tools = kwargs.get("tools", None)
+        
+        span_name = f"anthropic.messages.stream {model}"
+        span = tracer.start_span(span_name)
+        start_time = time.time()
+        span.set_attribute("llm.request.async", True)
+        _set_request_attributes(span, model, messages, tools, is_streaming=True)
+        
+        try:
+            stream_manager = await original_async_stream(self, *args, **kwargs)
+            return _wrap_async_stream_manager(stream_manager, span, start_time)
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(Status(StatusCode.ERROR, str(e)))
+            span.end()
+            raise
+    
+    AsyncMessages.stream = wrapped_async_stream
+
 
     @functools.wraps(original_async_create)
     async def wrapped_async_create(self, *args, **kwargs):
         tracer = _get_tracer()
         model = kwargs.get("model", "unknown")
         messages = kwargs.get("messages", [])
+        tools = kwargs.get("tools", None)
         is_streaming = kwargs.get("stream", False)
 
         span_name = f"anthropic.messages.create {model}"
@@ -267,7 +483,7 @@ def instrument_async_messages(anthropic_module: Any):
             span = tracer.start_span(span_name)
             start_time = time.time()
             span.set_attribute("llm.request.async", True)
-            _set_request_attributes(span, model, messages, is_streaming=True)
+            _set_request_attributes(span, model, messages, tools, is_streaming=True)
             
             try:
                 stream = await original_async_create(self, *args, **kwargs)
@@ -282,7 +498,7 @@ def instrument_async_messages(anthropic_module: Any):
             # Non-streaming: use context manager
             with tracer.start_as_current_span(span_name) as span:
                 span.set_attribute("llm.request.async", True)
-                _set_request_attributes(span, model, messages)
+                _set_request_attributes(span, model, messages, tools)
 
                 try:
                     response = await original_async_create(self, *args, **kwargs)
